@@ -1,3 +1,4 @@
+
 fn main() {
 
     /*
@@ -57,6 +58,8 @@ fn main() {
      */
     println!("{:?}", result);
 
+
+
     /*
      * Example five
      */
@@ -82,5 +85,36 @@ fn main() {
      * E = nom's Error type, that carries an I type with it.
      */
     println!("{:?}", result);
+
+    
+    /*
+     * Example six
+     */
+    println!("{}", "Example Six");
+    let whitespace_chars = " \t";
+
+    let input_data = String::from("--hat top   --bat  pipistrelle        --cat 51");
+    let two_dashes = "--";
+
+    let is_whitespace = nom::bytes::complete::is_a(whitespace_chars);
+    let is_not_whitespace = nom::bytes::complete::is_not(whitespace_chars);
+    let is_not_whitespace2 = nom::bytes::complete::is_not(whitespace_chars);
+    let is_optional_whitespace = nom::combinator::opt(nom::bytes::complete::is_a(whitespace_chars));
+    let double_dash_tag = nom::bytes::complete::tag(two_dashes);
+    let double_dashed_attribute_pair =
+        nom::sequence::tuple(
+            (
+                double_dash_tag,          // the two hyphens
+                is_not_whitespace,        // the attribute name
+                is_whitespace,            // the gap after the attribute name, and before the attribute value
+                is_not_whitespace2,       // the attribute value
+                is_optional_whitespace    // the whitespace before the next double dash.
+            )
+        );
+    let mut many_double_dashed_attribute_pairs = nom::multi::many0(double_dashed_attribute_pair);
+    println!("{}", "Following example five, this one reads a non-whitespace piece of data following each --attribute. Note that there are two definition of is_not_whitespace(2) to avoid the problem of the variable being moved if you try to use one implementation twice in the tuple of parsers.");
+    let result: nom::IResult<&str, Vec<(&str, &str, &str, &str, Option<&str>)>, nom::error::Error<&str>> = many_double_dashed_attribute_pairs(&input_data);
+    println!("{:?}", result);
  
+    
 }
