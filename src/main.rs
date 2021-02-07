@@ -35,4 +35,17 @@ fn main() {
     println!("{}", "Note also that the variable x that holds the parser function needs to be declared mutable. I don't really know why.");
     println!("{:?}", y);
 
+
+    /*
+     * Example four
+     */
+    println!("{}", "Example Four");
+    let input_data = String::from("--hat --bat --cat");
+    let two_dashes = "--";
+    let mut double_dash_tag = nom::bytes::complete::tag(two_dashes);
+    let mut double_dashed_word = nom::sequence::pair(double_dash_tag, nom::bytes::complete::is_not(" "));
+    let mut many_double_dashed_words = nom::multi::many0(double_dashed_word);
+    println!("{}", "This one defines a parser that identifies a double hyphen, pairs it with one that just reads until it finds a space, then tries repeating that pair to comsume matches 0 or more times. And it works, sort of. It consumes the --hat at the start of the input data, stopping there because it encounters the space after hat. The pair makes a tuple of the dashes and the hat, and the multi0 returns these as the first element of a vector, but the thing goes no further, because the space that stops the processing after hat is not a match for what comes next, whic is the double dash parser. Anyway, we progress.");
+    let result: nom::IResult<&str, Vec<(&str, &str)>, nom::error::Error<&str>> = many_double_dashed_words(&input_data);
+    println!("{:?}", result);
 }
