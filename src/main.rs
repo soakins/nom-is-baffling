@@ -144,4 +144,27 @@ fn main() {
     println!("This works, up to a point. It fails to pick up the last '--attrname value' because it doesn't end in another --. In the next example I'll see about providing an alternative ending.");
     println!("{:?}", x);
 
+    /*
+     * Example 8
+     */
+
+     println!("{}", "Example Eight");
+     let input_data = String::from("--hat beany --cat tabby --bat 87        --hasnodata --hasanumber 97 ");
+     let two_dashes = "--";
+     
+     let x: nom::IResult<&str, Vec<&str>, nom::error::Error<&str>> =
+         nom::multi::many0(
+             nom::sequence::preceded(
+                 nom::bytes::complete::tag(two_dashes),
+                 nom::branch::alt((
+                    nom::bytes::complete::take_until(two_dashes),
+                    nom::combinator::rest
+                 ))
+             )
+         )(&input_data);
+ 
+     println!("This is a bit of a new approach. I began to realise that repeating 'find some dashes, detect the attribute name, read the data, repeat' struggles if the data is missing - you wind up reading the next attribute name, complete with its two dash prefix, as if it was the missing data.  Instead, let's start by dividing things up by the double dashes. The preceded parser takes two parsers, the first it matches then discards, the second it returns. So I match and discard a TAG '--', then use take_until to read everything up to the next two dashes.");
+     println!("This works, up to a point. It fails to pick up the last '--attrname value' because it doesn't end in another --. In the next example I'll see about providing an alternative ending.");
+     println!("{:?}", x);
+
 }
