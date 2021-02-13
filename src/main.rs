@@ -3,6 +3,7 @@ enum CommandLineAttributes {
     Hat,
     Bat,
     Cat,
+    Unknown
 }
 
 fn main() {
@@ -123,38 +124,24 @@ fn main() {
     println!("{:?}", result);
  
     /*
-     * Example seven
+     * Example 7
      */
+
     println!("{}", "Example Seven");
-    let whitespace_chars = " \t";
- 
-    let input_data = String::from("--hat top   --bat  pipistrelle        --cat 51");
+    println!("{}", "Let's try the preceded sequence...");
+    let input_data = String::from("--hat beany --cat tabby --bat 87");
     let two_dashes = "--";
- 
-    let is_whitespace = nom::bytes::complete::is_a(whitespace_chars);
-    let is_not_whitespace = nom::bytes::complete::is_not(whitespace_chars);
-    let is_optional_whitespace = nom::combinator::opt(nom::bytes::complete::is_a(whitespace_chars));
-    let double_dash_tag = nom::bytes::complete::tag(two_dashes);
-    let hat_tag = nom::combinator::map(nom::bytes::complete::tag_no_case("hat"), |_|CommandLineAttributes::Hat);
-    let bat_tag = nom::combinator::map(nom::bytes::complete::tag_no_case("bat"), |_|CommandLineAttributes::Bat);
-    let cat_tag = nom::combinator::map(nom::bytes::complete::tag_no_case("cat"), |_|CommandLineAttributes::Cat);
-    let command_line_attributes = nom::branch::alt((hat_tag, bat_tag, cat_tag));
-    let double_dashed_attribute_pair =
-        nom::sequence::tuple(
-            (
-                double_dash_tag,          // the two hyphens
-                command_line_attributes,  // the attribute name
-                is_whitespace,            // the gap after the attribute name, and before the attribute value
-                is_not_whitespace,        // the attribute value
-                is_optional_whitespace    // the whitespace before the next double dash.
-             )
-         );
-     let mut many_double_dashed_attribute_pairs = nom::multi::many0(double_dashed_attribute_pair);
-     
-     let result: nom::IResult<&str, Vec<(&str, CommandLineAttributes, &str, &str, Option<&str>)>, nom::error::Error<&str>> = many_double_dashed_attribute_pairs(&input_data);
-     println!("{:?}", result);
-  
- 
     
+    let x: nom::IResult<&str, Vec<&str>, nom::error::Error<&str>> =
+        nom::multi::many0(
+            nom::sequence::preceded(
+                nom::bytes::complete::tag(two_dashes),
+                nom::bytes::complete::take_until(two_dashes)
+            )
+        )(&input_data);
+
+    println!("This is a bit of a new approach. I began to realise that repeating 'find some dashes, detect the attribute name, read the data, repeat' struggles if the data is missing - you wind up reading the next attribute name, complete with its two dash prefix, as if it was the missing data.  Instead, let's start by dividing things up by the double dashes. The preceded parser takes two parsers, the first it matches then discards, the second it returns. So I match and discard a TAG '--', then use take_until to read everything up to the next two dashes.");
+    println!("This works, up to a point. It fails to pick up the last '--attrname value' because it doesn't end in another --. In the next example I'll see about providing an alternative ending.");
+    println!("{:?}", x);
 
 }
