@@ -1,9 +1,15 @@
+mod attribute_struct;
+
+use std::num::ParseIntError;
+use attribute_struct::Attributes;
+
 #[derive(Debug)]
 enum CommandLineAttributes {
-    Hat,
-    Bat,
-    Cat,
-    Unknown
+    Hat(Option<String>),
+    Bat(Option<i32>),
+    Cat(Option<String>),
+    HasNoData,
+    HasANumber(Option<i32>)
 }
 
 fn main() {
@@ -152,19 +158,147 @@ fn main() {
      let input_data = String::from("--hat beany --cat tabby --bat 87        --hasnodata --hasanumber 97 ");
      let two_dashes = "--";
      
-     let x: nom::IResult<&str, Vec<&str>, nom::error::Error<&str>> =
+     let x_result: nom::IResult<&str, Vec<&str>, nom::error::Error<&str>> =
          nom::multi::many0(
-             nom::sequence::preceded(
-                 nom::bytes::complete::tag(two_dashes),
-                 nom::branch::alt((
-                    nom::bytes::complete::take_until(two_dashes),
-                    nom::combinator::rest
-                 ))
-             )
-         )(&input_data);
+            nom::sequence::preceded(
+                nom::bytes::complete::tag(two_dashes),
+                nom::branch::alt((
+                   nom::bytes::complete::take_until(two_dashes),
+                   nom::combinator::rest
+                ))
+            )
+        )(&input_data);
  
-     println!("This is a bit of a new approach. I began to realise that repeating 'find some dashes, detect the attribute name, read the data, repeat' struggles if the data is missing - you wind up reading the next attribute name, complete with its two dash prefix, as if it was the missing data.  Instead, let's start by dividing things up by the double dashes. The preceded parser takes two parsers, the first it matches then discards, the second it returns. So I match and discard a TAG '--', then use take_until to read everything up to the next two dashes.");
-     println!("This works, up to a point. It fails to pick up the last '--attrname value' because it doesn't end in another --. In the next example I'll see about providing an alternative ending.");
-     println!("{:?}", x);
+    println!("This is a bit of a new approach. I began to realise that repeating 'find some dashes, detect the attribute name, read the data, repeat' struggles if the data is missing - you wind up reading the next attribute name, complete with its two dash prefix, as if it was the missing data.  Instead, let's start by dividing things up by the double dashes. The preceded parser takes two parsers, the first it matches then discards, the second it returns. So I match and discard a TAG '--', then use take_until to read everything up to the next two dashes.");
+    println!("This works, up to a point. It fails to pick up the last '--attrname value' because it doesn't end in another --. In the next example I'll see about providing an alternative ending.");
+    println!("{:?}", x_result);
 
+    println!("prior to creating (directly) an Attributes struct...");
+    
+    /*
+    You can't create an attribute_struct::Attributes directly, there's a private field that cannot be accessed outside of the... what?.... module?
+    */
+    
+    /*
+    let a = Attributes{
+        hat: String::from("baseball_cap"),
+        bat: 54,
+        cat: String::from("witch's"),
+        has_a_number: 41,
+        has_no_data: false,
+        _dont_created_directly_use_new: (), // created properly is intended as a mechanism to prevent us creating an Attributes, by NOT declaring it public, but it doesn't seem to work 'in crate'.
+    };
+    */
+    println!("following creation (directly) an Attributes struct...");
+
+    let mut a = Attributes::new();
+    a.set_cat(String::from("new_cat_value"));
+
+
+    /*
+     * Example 9
+     
+
+    println!("{}", "Example nine will build on example eight.");
+    println!("{}", "We'll whizz through the vector of results we got. Each should be an attribute name, and then some text that comprises its data. It's possible that once the attribute name is removed, there'll be nothing left, which might be appropriate for some attributes - perhaps they just switch things and take no data.");
+    println!("{}", "In this bit we'll translate the textual attribute names into enum variants.");
+
+    let hat_tag = nom::combinator::map(nom::bytes::complete::tag_no_case("hat"), |_|CommandLineAttributes::Hat(None));
+    let bat_tag = nom::combinator::map(nom::bytes::complete::tag_no_case("bat"), |_|CommandLineAttributes::Bat(None));
+    let cat_tag = nom::combinator::map(nom::bytes::complete::tag_no_case("cat"), |_|CommandLineAttributes::Cat(None));
+    let hasnodata_tag = nom::combinator::map(nom::bytes::complete::tag_no_case("hasnodata"), |_|CommandLineAttributes::HasNoData);
+    let hasanumber_tag = nom::combinator::map(nom::bytes::complete::tag_no_case("hasanumber"), |_|CommandLineAttributes::HasANumber(None));
+
+    let mut command_line_attributes =
+        nom::branch::alt((
+            hat_tag,
+            bat_tag,
+            cat_tag,
+            hasnodata_tag,
+            hasanumber_tag
+        ));
+
+    if let Ok(x) = x_result {
+        let vector_from_x = x.1;
+        for attr_pair in vector_from_x {
+
+            let cla_result: nom::IResult<&str, CommandLineAttributes, nom::error::Error<&str>> = command_line_attributes(attr_pair);
+            
+            match cla_result {
+                Ok((remaining, cla)) => {
+                    
+                    let parse_results: std::result::Result<(&str, (&str, &str, Option<&str>, Option<&str>)), nom::Err<nom::error::Error<&str>>> =
+                        nom::sequence::tuple((
+                            nom::bytes::complete::is_a(whitespace_chars),                        // 1. this space will certainly be there
+                            nom::bytes::complete::is_not(whitespace_chars),                      // 2. this is the data!
+                            nom::combinator::opt(nom::bytes::complete::is_a(whitespace_chars)),  // 3. if there are any more characters, there must be space between, but there might not be, and in that case opt returns us a None
+                            nom::combinator::opt(nom::bytes::complete::is_not(whitespace_chars)) // 4. this is the extra data that ought not to be there
+                        ))(remaining);
+
+                    // none of our examples should have extra data after the initial data. i.e.
+                    // they shouldn't have a fourth part in the tuple, it should be 'None'.
+
+                    if parse_results.is_ok() {
+    
+                        let parse_unwrapped = parse_results.unwrap();
+                        let parsed_payload = parse_unwrapped.1;
+                        let data_2 = parsed_payload.1;
+                        let data_4 = parsed_payload.3;
+
+                        if data_4.is_some() {
+                            panic!("Extra unwanted data: '{}'", data_4.unwrap());
+                        }
+
+                        match cla {
+                            CommandLineAttributes::Bat(b) => {
+                                // bat takes an option i32;
+                                let value_result: nom::IResult<&str, &str, nom::error::Error<&str>> = nom::combinator::all_consuming(nom::character::complete::digit1)(data_2);
+                                match value_result {
+                                    Ok(value) => {
+                                        /*
+                                         * We consumed all the characters, and they were digits, so we have a good chance of making a number out of them.
+                                         */
+                                        let value_as_number_result: Result<i32, ParseIntError> = String::from(value.1).parse();
+
+                                        match value_as_number_result {
+                                            Ok(value_as_number) => {
+                                                /*
+                                                 * Swap this new i32 into the 'field' in the bat enum variant
+                                                 */
+
+                                                std::mem::replace(&mut cla, CommandLineAttributes::Bat(Some(value_as_number)));
+                                           }
+                                            Err(errm) => {
+
+                                            }
+                                        }
+                                    }
+                                    Err(val_err) => {
+
+                                    }
+                                }
+                            }
+                            CommandLineAttributes::Cat(_) => {
+
+                            }
+                            CommandLineAttributes::Hat(_) => {
+
+                            }
+                            CommandLineAttributes::HasANumber(_) => {
+
+                            }
+                            CommandLineAttributes::HasNoData => {
+
+                            }
+                        }
+                    }
+                    else {   // parse_results is an Err()
+                        panic!(parse_results.unwrap_err());
+                    }
+                }
+                Err(errormessage) => println!("{}", errormessage)
+            }
+            
+        }    
+    }*/
 }
